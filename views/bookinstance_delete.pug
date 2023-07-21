@@ -1,0 +1,19 @@
+extends layout
+
+block content
+  div(style='margin-left:20px;margin-top:18px')
+  h5  #{title}
+
+  p= bookInstance.imprint
+
+  p= bookInstance._id
+  p= bookInstance.book._id
+
+    div(style='margin-left:20px;margin-top:20px')
+  p Do you really want to delete this bookinstance?
+
+    form(method='POST' action='')
+      div.form-group
+        input#bookInstance.form-control(type='hidden',name='bookInstanceId', required='true', value=bookInstance._id)
+        input#bookId.form-control(type='hidden',name='bookId', required='true', value=bookInstance.book._id)
+      button.btn.btn-primary(type='submit') Delete
