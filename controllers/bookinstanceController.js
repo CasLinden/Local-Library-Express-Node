@@ -36,7 +36,7 @@ exports.bookinstance_create_get = asyncHandler(async (req, res, next) => {
   const allBooks = await Book.find({}, "title").exec();
 
   res.render("bookinstance_form", {
-    title: "Create BookInstance",
+    title: "Create Book Instance",
     book_list: allBooks,
   });
 });
@@ -92,8 +92,10 @@ exports.bookinstance_create_post = [
 // Display Bookinstance delete form on GET.
 exports.bookinstance_delete_get = asyncHandler(async (req, res, next) => {
   // Get bookinstance
-  const bookInstance = await BookInstance.findById(req.params.id).populate("book").exec()
-    
+  const bookInstance = await BookInstance.findById(req.params.id)
+    .populate("book")
+    .exec();
+
   if (bookInstance === null) {
     // No results.
     res.redirect("/catalog/bookinstances");
@@ -106,16 +108,75 @@ exports.bookinstance_delete_get = asyncHandler(async (req, res, next) => {
 
 // Handle BookInstance delete on POST.
 exports.bookinstance_delete_post = asyncHandler(async (req, res, next) => {
-  await BookInstance.findByIdAndRemove(req.body.bookInstanceId)
+  await BookInstance.findByIdAndRemove(req.body.bookInstanceId);
   res.redirect(`/catalog/book/${req.body.bookId}`);
 });
 
 // Display BookInstance update form on GET.
 exports.bookinstance_update_get = asyncHandler(async (req, res, next) => {
-  res.send("NOT IMPLEMENTED: BookInstance update GET");
+  // Get book, authors and genres for form.
+  const [bookinstance, allBooks] = await Promise.all([
+    BookInstance.findById(req.params.id).populate("book").exec(),
+    Book.find().exec(),
+  ]);
+
+  if (bookinstance === null) {
+    // No results.
+    const err = new Error("Book not found");
+    err.status = 404;
+    return next(err);
+  }
+
+  res.render("bookinstance_form", {
+    title: "Update Book Instance",
+    bookinstance,
+    book_list: allBooks,
+    selected_book: bookinstance.book._id,
+  });
 });
 
 // Handle bookinstance update on POST.
-exports.bookinstance_update_post = asyncHandler(async (req, res, next) => {
-  res.send("NOT IMPLEMENTED: BookInstance update POST");
-});
+exports.bookinstance_update_post = [
+  // Validate and sanitize imprint field.
+  body("imprint", "imprint must not be empty.").trim().isLength({ min: 1 }),
+
+  // Process request after validation and sanitization.
+  asyncHandler(async (req, res, next) => {
+    // Extract the validation errors from a request.
+    const errors = validationResult(req);
+
+    // Create a Book object with escaped/trimmed data and old id.
+    const bookInstance = new BookInstance({
+      book: req.body.book,
+      imprint: req.body.imprint,
+      status: req.body.status,
+      due_back: req.body.due_back,
+      _id: req.params.id,
+    });
+
+    if (!errors.isEmpty()) {
+      // There are errors. Render form again with sanitized values/error messages.
+
+      // Get bookinstance and all books for form
+      const [bookinstance, allBooks] = await Promise.all([
+        BookInstance.findById(req.params.id).populate("book").exec(),
+        Book.find().exec(),
+      ]);
+
+      res.render("bookinstance_form", {
+        title: "Update Book Instance",
+        bookinstance,
+        book_list: allBooks,
+        selected_book: bookinstance.book._id,
+        errors: errors.array(),
+      });
+      return;
+    } else {
+      console.log(req.params.id)
+      // Data from form is valid. Update the record.
+      const thebookinstance = await BookInstance.findByIdAndUpdate(req.params.id, bookInstance, {});
+      // Redirect to book detail page.
+      res.redirect(thebookinstance.url);
+    }
+  }),
+];

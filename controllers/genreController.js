@@ -37,7 +37,7 @@ exports.genre_detail = asyncHandler(async (req, res, next) => {
 // Display Genre create form on GET.
 exports.genre_create_get = (req, res, next) => {
   res.render("genre_form", { title: "Create Genre" });
-}; // we don't need asyncHandler here, because no code in middleware 
+}; // we don't need asyncHandler here, because no code in middleware
 
 // Handle Genre create on POST.
 exports.genre_create_post = [
@@ -83,10 +83,12 @@ exports.genre_delete_get = asyncHandler(async (req, res, next) => {
   // Get details of genre and its books.
   const [genre, allBooksInGenre] = await Promise.all([
     Genre.findById(req.params.id).exec(),
-    Book.find({ genre: req.params.id }, "title author").populate("author").exec(),
+    Book.find({ genre: req.params.id }, "title author")
+      .populate("author")
+      .exec(),
   ]);
 
-  console.log(allBooksInGenre)
+  console.log(allBooksInGenre);
 
   if (genre === null) {
     // No results.
@@ -105,7 +107,9 @@ exports.genre_delete_post = asyncHandler(async (req, res, next) => {
   // Get details of genre and its books.
   const [genre, allBooksInGenre] = await Promise.all([
     Genre.findById(req.params.id).exec(),
-    Book.find({ genre: req.params.id }, "title author").populate("author").exec(),
+    Book.find({ genre: req.params.id }, "title author")
+      .populate("author")
+      .exec(),
   ]);
 
   if (allBooksInGenre.length > 0) {
@@ -125,10 +129,49 @@ exports.genre_delete_post = asyncHandler(async (req, res, next) => {
 
 // Display Genre update form on GET.
 exports.genre_update_get = asyncHandler(async (req, res, next) => {
-  res.send("NOT IMPLEMENTED: Genre update GET");
+  const genre = Genre.findById(req.params.id).exec();
+
+  if (genre === null) {
+    const err = new Error("Book not found");
+    err.status = 404;
+    return next(err);
+  }
+
+  res.render("genre_form", {
+    title: "Update Genre",
+    genre,
+  });
 });
 
 // Handle Genre update on POST.
-exports.genre_update_post = asyncHandler(async (req, res, next) => {
-  res.send("NOT IMPLEMENTED: Genre update POST");
-});
+exports.genre_update_post = [
+  body("name", "Genre name must contain at least 3 characters")
+    .trim()
+    .isLength({ min: 3 })
+    .escape(),
+
+  asyncHandler(async (req, res, next) => {
+    const errors = validationResult(req);
+    const genreExists = await Genre.findOne({ name: req.body.name }).exec();
+    if (genreExists) {
+      // Genre exists, redirect to its detail page.
+      res.redirect(genreExists.url);
+    } else {
+      // Create a genre object with escaped and trimmed data.
+      var genre = new Genre({ 
+        name: req.body.name,
+        _id: req.params.id
+      });
+    }
+
+    if (!errors.isEmpty()) {
+      res.render("genre_form", {
+        genre,
+      });
+    } else {
+      const updated = await Genre.findByIdAndUpdate(req.params.id, genre, {});
+      // New genre saved. Redirect to genre detail page.
+      res.redirect(updated.url);
+    }
+  }),
+];
